@@ -7,13 +7,14 @@ const HOSTED_URLS = {
 };
 
 const examples = {
-  'example1': 'red',
+  'example1': 
+      'Red',
   'example2':
-      'yellow',
+      'Blue',
   'example3':
-      'blue',
+      'Green',
   'example4':
-      'green' 
+      'Yellow' 
 };
 
 function status(statusText) {
@@ -44,11 +45,11 @@ function disableLoadModelButtons() {
 }
 
 function doPredict(predict) {
+  var a = ["r","g","b"];
   const textField = document.getElementById('text-entry');
   const result = predict(textField.value);
   score_string = "Class scores: ";
-  var a = ["r","g","b"];
-  var c = [0,0,0];
+  var c = [0, 0, 0];
   for (var x in result.score) {
     score_string += a[x] + " ->  " + Math.floor(result.score[x].toFixed(3)*255) + ", ";
     c[x] = Math.floor(result.score[x].toFixed(3)*255)
@@ -57,11 +58,9 @@ function doPredict(predict) {
   var color_div = document.getElementById('output-color');
   var color = "rgb("+c[0]+","+ c[1] + "," + c[2] + ")"
   console.log(color)
-  //console.log("rgb("+toString(32)+","+ toString(54) + "," + toString(120) + ")")
   color_div.style.backgroundColor = color;
   document.body.style.backgroundColor = color;
   console.log(color_div.style)
-  //console.log(score_string);
   status(
       score_string + ' elapsed: ' + result.elapsed.toFixed(3) + ' ms)');
 }
