@@ -6,9 +6,26 @@ const HOSTED_URLS = {
       'model_js/metadata.json'
 };
 
+const examples = {
+  'example1': 'red',
+  'example2':
+      'yellow',
+  'example3':
+      'blue',
+  'example4':
+      'green' 
+};
+
 function status(statusText) {
   console.log(statusText);
   document.getElementById('status').textContent = statusText;
+}
+
+function showMetadata(metadataJSON) {
+  document.getElementById('vocabularySize').textContent =
+      metadataJSON['vocabulary_size'];
+  document.getElementById('maxLen').textContent =
+      metadataJSON['max_len'];
 }
 
 function settextField(text, predict) {
@@ -26,50 +43,36 @@ function disableLoadModelButtons() {
   document.getElementById('load-model').style.display = 'none';
 }
 
-function getTextColor(red, green, blue) {
-    var brightness = ((red * 299) + (green * 587) + (blue * 114)) / 1000;
-    if(brightness < 125) { 
-        return 'white';
-    } else {
-        return 'black';
-    }
-}
-
 function doPredict(predict) {
-  var textField = document.getElementById('text-entry');
-  var btn = document.getElementById("btn");
-  var view = document.getElementById("view");
-  var msg = document.getElementById("message");
-  console.log(textField.value);
+  const textField = document.getElementById('text-entry');
   const result = predict(textField.value);
   score_string = "Class scores: ";
+  var a = ["r","g","b"];
+  var c = [0,0,0];
   for (var x in result.score) {
-    score_string += x + " ->  " + result.score[x].toFixed(3) + ", "
+    score_string += a[x] + " ->  " + Math.floor(result.score[x].toFixed(3)*255) + ", ";
+    c[x] = Math.floor(result.score[x].toFixed(3)*255)
   }
-  console.log(score_string);
-  const red = parseInt(result.score[0] * 255);
-  const green = parseInt(result.score[1] * 255);
-  const blue = parseInt(result.score[2] * 255);
-  console.log("rgb: " + red+", " + green+", " + blue );
-  var displayColor = function() {
-      msg.style.display = "none";
-      view.innerHTML =
-          '<div class="' + getTextColor(red, green, blue) + '">' +
-              '<div class="inner">' +
-                  '<span>' + 'RGB(' + red + ', ' + green + ', ' + blue + ')' + '</span>' +
-              '</div>' +
-          '</div>' + view.innerHTML;
-      view.firstChild.style.backgroundColor = 'RGB(' + red + ', ' + green + ', ' + blue + ')';
-      textField.value = "";
-    };
-  btn.onclick = displayColor;
+  console.log(c)
+  var color_div = document.getElementById('output-color');
+  var color = "rgb("+c[0]+","+ c[1] + "," + c[2] + ")"
+  console.log(color)
+  //console.log("rgb("+toString(32)+","+ toString(54) + "," + toString(120) + ")")
+  color_div.style.backgroundColor = color;
+  document.body.style.backgroundColor = color;
+  console.log(color_div.style)
+  //console.log(score_string);
   status(
       score_string + ' elapsed: ' + result.elapsed.toFixed(3) + ' ms)');
 }
 
 function prepUI(predict) {
   setPredictFunction(predict);
-  settextField('tensorflow orange', predict);
+  const testExampleSelect = document.getElementById('example-select');
+  testExampleSelect.addEventListener('change', () => {
+    settextField(examples[testExampleSelect.value], predict);
+  });
+  settextField(examples['example1'], predict);
 }
 
 async function urlExists(url) {
@@ -86,12 +89,11 @@ async function loadHostedPretrainedModel(url) {
   status('Loading pretrained model from ' + url);
   try {
     const model = await tf.loadLayersModel(url);
-    console.log(model.summary());
     status('Done loading pretrained model.');
     disableLoadModelButtons();
     return model;
   } catch (err) {
-    console.log(err);
+    console.error(err);
     status('Loading pretrained model failed.');
   }
 }
@@ -110,6 +112,7 @@ async function loadHostedMetadata(url) {
 }
 
 class Classifier {
+
   async init(urls) {
     this.urls = urls;
     this.model = await loadHostedPretrainedModel(urls.model);
@@ -120,6 +123,7 @@ class Classifier {
   async loadMetadata() {
     const metadata =
         await loadHostedMetadata(this.urls.metadata);
+    showMetadata(metadata);
     this.maxLen = metadata['max_len'];
     console.log('maxLen = ' + this.maxLen);
     this.wordIndex = metadata['word_index']
@@ -127,28 +131,27 @@ class Classifier {
 
   predict(text) {
     // Convert to lower case and remove all punctuations.
-    const inputText = text.trim().toLowerCase().replace(/(\.|\,|\!)/g, '').split("");
+    const inputText = text.trim().toLowerCase();
     // Look up word indices.
-    console.log(inputText);
     const inputBuffer = tf.buffer([1, this.maxLen], 'float32');
-   for (let i = 0; i < this.maxLen - inputText.length; ++i) {
-      inputBuffer.set(0, 0, i);
+    var zeros = this.maxLen - inputText.length;
+    for(let i=0; i<zeros; ++i) {
+        inputBuffer.set(0, 0, i);
     }
-    for (let i = this.maxLen - inputText.length; i < this.maxLen; ++i) {
-      const word = inputText[i - (this.maxLen - inputText.length)];
-      inputBuffer.set(this.wordIndex[word], 0, i);
+    
+    for (let i = 0; i < inputText.length; ++i) {
+      const word = inputText[i];
+      inputBuffer.set(this.wordIndex[word], 0, i+zeros);
       console.log(word, this.wordIndex[word], inputBuffer);
     }
-    console.log("inputBuffer: " + inputBuffer);
     const input = inputBuffer.toTensor();
-   // input = tf.where(tf.math.is_nan(input), tf.zeros_like(input), input);
-    console.log("input tensor: " +input + ", input shape:" + input.shape);
+    console.log(input);
+
     status('Running inference');
     const beginMs = performance.now();
     const predictOut = this.model.predict(input);
-    //console.log(predictOut.dataSync());
+    console.log(predictOut.dataSync());
     const score = predictOut.dataSync();//[0];
-    console.log(score);
     predictOut.dispose();
     const endMs = performance.now();
 
